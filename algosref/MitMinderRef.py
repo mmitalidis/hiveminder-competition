@@ -200,7 +200,7 @@ class MPaths():
     def get_ph_from_idn(id_node):
         global heading_denum
         heading_id = id_node // 64
-        pos        = id_node - heading_id*64
+        pos     = id_node - heading_id*64
         return pos, heading_denum[heading_id]
     
     @staticmethod
@@ -322,7 +322,7 @@ class MBoard():
     """
     MBoard is a board class. The aim is to be fast to go to the next state. No neighbours connections.
     """
-    __slots__ = ('hives','flowers','bees','qbees','seeds','dead','left','turn_num','mpaths')
+    __slots__ = ('hives','flowers','bees','qbees','seeds','dead','left','turn_num')
     def __init__(self,
                  hives    =None,\
                  flowers  =None,\
@@ -331,8 +331,7 @@ class MBoard():
                  seeds    =None,\
                  dead     =None,\
                  left     =None,\
-                 turn_num =None,\
-                 mpaths   =None):
+                 turn_num =None):
         self.hives    = deepcopy(hives)
         self.flowers  = deepcopy(flowers)
         self.bees     = deepcopy(bees)
@@ -341,13 +340,12 @@ class MBoard():
         self.dead     = deepcopy(dead)
         self.left     = deepcopy(left)
         self.turn_num = turn_num
-        self.mpaths   = mpaths
 
 
     # MBoard basics (initialization, board advance i.e turn, available commands, copy and turn, static board evaluation, next move)
     # ---------------------------------------------------------------------------------------------------------
 
-    def game_init(self,turn_num,in_hives,in_flowers,in_inflight,mpaths=None):
+    def game_init(self,turn_num,in_hives,in_flowers,in_inflight):
         """
         Parse inputs (hives, flowers, inflights) - lists of lists
         hives   : [pos,nectar]
@@ -368,7 +366,6 @@ class MBoard():
         self.dead       = Vocounter()
         self.left       = Vocounter()
         self.turn_num   = turn_num
-        self.mpaths     = mpaths
 
         # transform input to lists and store keys
         self.hives   = dict((next(rand_id()), Mhive(x[0]*8+x[1], x[2]))                      for x in in_hives)
@@ -433,7 +430,6 @@ class MBoard():
         self.dead     = deepcopy(other_board.dead)
         self.left     = deepcopy(other_board.left)
         self.turn_num = deepcopy(other_board.turn_num)
-        self.mpaths   = other_board.mpaths
 
         # advance board
         self.turn(command)
@@ -647,6 +643,7 @@ class MBoard():
     # ---------------------------------------------------------------------------------------------------------
 
     def qbee_best_cmd(self):
+        global mpaths
 
         # start counting time
         time_start = time.time()
@@ -666,9 +663,9 @@ class MBoard():
                 end_idns = MPaths.get_idns_from_p(end_pos)
                 for end_idn in end_idns:
 
-                    path_len = len(self.mpaths.short_paths[start_idn][end_idn])
+                    path_len = len(mpaths.short_paths[start_idn][end_idn])
                     if path_len != 0:
-                        tiles.append((end_idn,priority[self.mpaths.game][end_pos],path_len))
+                        tiles.append((end_idn,priority[mpaths.game][end_pos],path_len))
     
             # sort based on priority and route length
             tiles.sort(key=itemgetter(1,2))
@@ -697,8 +694,10 @@ class MBoard():
         if start_idn == end_idn:
             return True, Command('QueenBee','create_hive',qkey) 
 
+        global mpaths
+
         # get the path we will check (node ids and positions)
-        path_idn = self.mpaths.short_paths[start_idn][end_idn]
+        path_idn = mpaths.short_paths[start_idn][end_idn]
         path_pos = MPaths.get_ppath_from_idns( path_idn )
 
         # get the bugs (bees,qbees) that are dangerous
@@ -712,7 +711,7 @@ class MBoard():
 
         # initialize need_command, first_command
         for step in range(len(path_idn)-1):
-            requires_queen_command = self.mpaths.graph[ path_idn[step] ][ path_idn[step+1] ] == 2
+            requires_queen_command = mpaths.graph[ path_idn[step] ][ path_idn[step+1] ] == 2
             if requires_queen_command:
                 need_command[step] = True
                 if step == 0:
@@ -811,6 +810,7 @@ class MBoard():
 
 
     def list_of_danger_bugs(self,qkey,path_pos):
+        global mpaths
 
         danger_bugs = []
         for key,bee in self.bees.items():
@@ -925,7 +925,7 @@ class MBoard():
 #===================================================================================#
 
                           
-@algo_player(name="MitMinder",
+@algo_player(name="MitMinderRef",
              description="Most Promising Children - Queen Navigation")
 def mitminder(board_width, board_height, hives, flowers, inflight, crashed,
               lost_volants, received_volants, landed, scores, player_id, game_id, turn_num):
@@ -936,7 +936,7 @@ def mitminder(board_width, board_height, hives, flowers, inflight, crashed,
     mpaths.add_hive_from_input(hives)
 
     mboard = MBoard()
-    mboard.game_init(turn_num,hives,flowers,inflight,mpaths)
+    mboard.game_init(turn_num,hives,flowers,inflight)
     output_command = mboard.next_move()
 
     return output_command
