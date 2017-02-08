@@ -54,8 +54,16 @@ first_short_paths = None
 # ----------------------------------------------------------------------------------
 
 class MPaths():
+    board_width  = 8
+    board_height = 8
+    board_pos    = 64
+
     __slots__ = ('graph','short_paths','hives_pos','game')
-    def __init__(self,first_hive=None):
+    def __init__(self,board_width,board_height,first_hive=None):
+        MPaths.board_width  = board_width
+        MPaths.board_height = board_height
+        MPaths.board_pos    = MPaths.board_width*MPaths.board_height
+
         self.graph_generate()
         self.hives_pos = []
         self.game      = None
@@ -74,7 +82,7 @@ class MPaths():
         if len(hives) == len(self.hives_pos):
             return
 
-        in_hives_pos = [ h[0]*8+h[1] for h in hives ]
+        in_hives_pos = [ h[0]*MPaths.board_width+h[1] for h in hives ]
         for pos in in_hives_pos:
             if pos not in self.hives_pos:
                 self.add_hive(pos)
@@ -104,7 +112,7 @@ class MPaths():
         """
         global alt_headings
  
-        npos = 64
+        npos = MPaths.board_pos
         nhead = 6
         nnodes = npos*nhead
     
@@ -115,7 +123,7 @@ class MPaths():
             
             for new_heading in alt_headings[heading]:
                 the_new_pos = new_pos[new_heading][pos]
-                if 0<= the_new_pos < 64:
+                if 0<= the_new_pos < MPaths.board_pos:
                     new_id_node = MPaths.get_idn_from_ph(the_new_pos, new_heading)
     
                     if new_heading == heading:
@@ -182,25 +190,25 @@ class MPaths():
     @staticmethod
     def get_idn_from_ph(pos,heading):
         global heading_enum
-        return 64*heading_enum[heading]+pos
+        return MPaths.board_pos*heading_enum[heading]+pos
     
     @staticmethod
     def get_p_from_idn(id_node):
-        heading_id = id_node // 64
-        pos        = id_node - heading_id*64
+        heading_id = id_node // MPaths.board_pos
+        pos        = id_node - heading_id * MPaths.board_pos
         return pos
     
     @staticmethod
     def get_h_from_idn(id_node):
         global heading_denum
-        heading_id = id_node // 64
+        heading_id = id_node // MPaths.board_pos
         return heading_denum[heading_id]
     
     @staticmethod
     def get_ph_from_idn(id_node):
         global heading_denum
-        heading_id = id_node // 64
-        pos        = id_node - heading_id*64
+        heading_id = id_node // MPaths.board_pos
+        pos        = id_node - heading_id * MPaths.board_pos
         return pos, heading_denum[heading_id]
     
     @staticmethod
@@ -322,8 +330,14 @@ class MBoard():
     """
     MBoard is a board class. The aim is to be fast to go to the next state. No neighbours connections.
     """
+    board_width  = 8
+    board_height = 8
+    board_pos    = 64
     __slots__ = ('hives','flowers','bees','qbees','seeds','dead','left','turn_num','mpaths')
     def __init__(self,
+                 board_width  = None,\
+                 board_height = None,\
+                 board_pos    = None,\
                  hives    =None,\
                  flowers  =None,\
                  bees     =None,\
@@ -333,6 +347,9 @@ class MBoard():
                  left     =None,\
                  turn_num =None,\
                  mpaths   =None):
+        MBoard.board_width  = board_width
+        MBoard.board_height = board_height
+        MBoard.board_pos    = board_pos
         self.hives    = deepcopy(hives)
         self.flowers  = deepcopy(flowers)
         self.bees     = deepcopy(bees)
@@ -347,7 +364,7 @@ class MBoard():
     # MBoard basics (initialization, board advance i.e turn, available commands, copy and turn, static board evaluation, next move)
     # ---------------------------------------------------------------------------------------------------------
 
-    def game_init(self,turn_num,in_hives,in_flowers,in_inflight,mpaths=None):
+    def game_init(self,turn_num,board_width,board_height,in_hives,in_flowers,in_inflight,mpaths=None):
         """
         Parse inputs (hives, flowers, inflights) - lists of lists
         hives   : [pos,nectar]
@@ -360,6 +377,9 @@ class MBoard():
         Also, id of inflight can be used to access the key list.
         """
         # clear object data
+        MBoard.board_width  = 8
+        MBoard.board_height = 8
+        MBoard.board_pos    = 64
         self.hives      = dict()
         self.flowers    = dict()
         self.bees       = dict()
@@ -370,17 +390,22 @@ class MBoard():
         self.turn_num   = turn_num
         self.mpaths     = mpaths
 
+        # set board dimensions
+        MBoard.board_width  = board_width
+        MBoard.board_height = board_height
+        MBoard.board_pos    = board_width*board_height
+
         # transform input to lists and store keys
-        self.hives   = dict((next(rand_id()), Mhive(x[0]*8+x[1], x[2]))                      for x in in_hives)
-        self.flowers = dict((next(rand_id()), Mflower(x[0]*8+x[1], x[3], x[4], x[5]-turn_num)) for x in in_flowers)
+        self.hives   = dict((next(rand_id()), Mhive(x[0]*MBoard.board_width +x[1], x[2]))                      for x in in_hives)
+        self.flowers = dict((next(rand_id()), Mflower(x[0]*MBoard.board_width +x[1], x[3], x[4], x[5]-turn_num)) for x in in_flowers)
 
         for key, v in in_inflight.items():
             if v[0] == 'Bee':
-                self.bees[key]  = Mbee(v[1]*8+v[2], v[3], v[4], v[6])
+                self.bees[key]  = Mbee(v[1]*MBoard.board_width +v[2], v[3], v[4], v[6])
             elif v[0] == 'QueenBee':
-                self.qbees[key] = Mqbee(v[1]*8+v[2], v[3], v[4], v[6])
+                self.qbees[key] = Mqbee(v[1]*MBoard.board_width +v[2], v[3], v[4], v[6])
             elif v[0] == 'Seed':
-                self.seeds[key] = Mseed(v[1]*8+v[2], v[3])
+                self.seeds[key] = Mseed(v[1]*MBoard.board_width +v[2], v[3])
 
 
 
@@ -482,9 +507,9 @@ class MBoard():
         old_qbees_len = len(self.qbees)
         old_seeds_len = len(self.seeds)
 
-        self.bees  = dict((key,bee)  for (key,bee)  in self.bees.items()  if 0<= bee.pos  < 64)
-        self.qbees = dict((key,qbee) for (key,qbee) in self.qbees.items() if 0<= qbee.pos < 64)
-        self.seeds = dict((key,seed) for (key,seed) in self.seeds.items() if 0<= seed.pos < 64)
+        self.bees  = dict((key,bee)  for (key,bee)  in self.bees.items()  if 0<= bee.pos  < MBoard.board_pos)
+        self.qbees = dict((key,qbee) for (key,qbee) in self.qbees.items() if 0<= qbee.pos < MBoard.board_pos)
+        self.seeds = dict((key,seed) for (key,seed) in self.seeds.items() if 0<= seed.pos < MBoard.board_pos)
 
         new_bees_len  = len(self.bees)
         new_qbees_len = len(self.qbees)
@@ -652,7 +677,7 @@ class MBoard():
         time_start = time.time()
     
         # available tiles to create hive (ignore flowers)
-        free_pos = tuple( set(range(64)) - set(hive.pos for hive in self.hives.values()) )
+        free_pos = tuple( set(range(MBoard.board_pos)) - set(hive.pos for hive in self.hives.values()) )
     
         # we will only work with one queen bee
         for qkey, qbee in self.qbees.items():
@@ -787,7 +812,7 @@ class MBoard():
  
 
     def is_danger_bee(self,pos,heading,key,path_pos):
-        if not 0<= pos < 64:
+        if not 0<= pos < MBoard.board_pos:
             return False,None
 
         to_cross = path_crosses[heading][pos]
@@ -799,7 +824,7 @@ class MBoard():
 
 
     def is_danger_qbee(self,pos,heading,key,path_pos):
-        if not 0<= pos < 64:
+        if not 0<= pos < MBoard.board_pos:
             return False,None
 
         to_cross = path_crosses[heading][pos]
@@ -882,7 +907,6 @@ class MBoard():
         dls arguments:
             cdepth = current depth
             fdepth = final depth
-            ndepth = new depth
         """
         ndepth = cdepth + 1
         global best_n
@@ -936,7 +960,7 @@ def mitminder(board_width, board_height, hives, flowers, inflight, crashed,
     mpaths.add_hive_from_input(hives)
 
     mboard = MBoard()
-    mboard.game_init(turn_num,hives,flowers,inflight,mpaths)
+    mboard.game_init(turn_num,board_width,board_height,hives,flowers,inflight,mpaths)
     output_command = mboard.next_move()
 
     return output_command
@@ -948,12 +972,12 @@ def start_game(board_width, board_height, hives, flowers, players, player_id, ga
     global mpaths
 
     if len(hives) > 0:
-        first_hive_pos = hives[0][0]*8 + hives[0][1]
+        first_hive_pos = hives[0][0]*board_width + hives[0][1]
     else:
         first_hive_pos = None
 
     # we do not use the add_hives_from_input method to avoid calculating the shortest paths the first time
-    mpaths = MPaths(first_hive_pos)
+    mpaths = MPaths(board_width,board_height,first_hive_pos)
 
 
 @mitminder.on_game_over
